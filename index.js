@@ -1,7 +1,7 @@
 import express from "express";
 import pg from "pg";
 import dotenv from "dotenv";
-const PORT = 3000;
+import { z } from "zod";
 
 dotenv.config();
 const app = express();
@@ -14,10 +14,19 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
 });
 
-app.use(express.json());
-app.get("/", (req, res) => {
-  res.send("Welcome to this NodeJS and PostgreSQL lesson.");
+const athleteschema = z.object({
+  name: z
+    .string()
+    .min(2, { message: "Your name needs to include at least 2 characters" })
+    .max(20, { message: "Your name needs to include at most 20 characters" }),
+  sport: z.string().min(2).max(20),
+  age: z.number().min(8).max(50),
 });
+
+app.use(express.json());
+//app.get("/", (req, res) => {
+//  res.send("Welcome to this NodeJS and PostgreSQL lesson.");
+//});
 
 app.get("/player-scores", async (req, res) => {
   try {
@@ -88,8 +97,15 @@ app.get("/recent-players", async (req, res) => {
   }
 });
 
+const PORT = 3000;
+
 app.post("/athletes", async (req, res) => {
-  const { name, sport, age } = req.body;
+  const validatedAthlete = athleteschema.safeParse(req.body);
+  if (!validatedAthlete.success) {
+    return res.status(400).json({ errors: validatedAthlete.error });
+  }
+  console.loh(validatedAthlete.data);
+  const { name, sport, age } = validatedAthlete.data;
   try {
     const result = await pool.query(
       "INSERT INTO athletes (name, sport, age) VALUES ($1, $2, $3) RETURNING *",
@@ -136,4 +152,9 @@ app.delete("/athletes/:id", async (req, res) => {
 
 app.listen(3000, () => {
   console.log(`Server is running on PORT ${PORT}`);
+  console.log(`http://localhost:${PORT}/player-scores`);
+  console.log(`http://localhost:${PORT}/top-players`);
+  console.log(`http://localhost:${PORT}/inactive-players`);
+  console.log(`http://localhost:${PORT}/popular-genres`);
+  console.log(`http://localhost:${PORT}/recent-players`);
 });
